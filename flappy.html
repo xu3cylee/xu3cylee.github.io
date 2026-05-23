@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#ffd9b3">
+  <title>Flappy Capybara</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background: #ffd9b3;
+      color: #3a2a1a;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    #stage {
+      position: relative;
+      width: min(100vw, 480px);
+      height: min(100vh, 720px);
+      aspect-ratio: 2 / 3;
+      box-shadow: 0 20px 60px rgba(80, 40, 10, 0.18);
+      border-radius: 12px;
+      overflow: hidden;
+      background: #cfeaff;
+      touch-action: manipulation;
+    }
+    @media (max-width: 520px) {
+      #stage {
+        width: 100vw;
+        height: 100vh;
+        border-radius: 0;
+        box-shadow: none;
+        aspect-ratio: auto;
+      }
+    }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+    .overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 1.5rem;
+      box-sizing: border-box;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+    .overlay.hidden {
+      opacity: 0;
+      pointer-events: none !important;
+    }
+    .card {
+      background: rgba(255, 250, 240, 0.94);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      border-radius: 18px;
+      padding: 1.4rem 1.6rem;
+      box-shadow: 0 8px 30px rgba(80, 40, 10, 0.18);
+      max-width: 320px;
+      pointer-events: auto;
+    }
+    h1.title {
+      margin: 0 0 0.2rem;
+      font-size: 1.7rem;
+      font-weight: 700;
+      color: #6b3a1a;
+      letter-spacing: 0.5px;
+    }
+    .subtitle {
+      margin: 0 0 1rem;
+      font-size: 0.9rem;
+      color: #8a6a4a;
+    }
+    .hint {
+      margin: 0.4rem 0 0;
+      font-size: 0.85rem;
+      color: #8a6a4a;
+    }
+    .scoreline {
+      display: flex;
+      gap: 1.2rem;
+      justify-content: center;
+      margin: 0.8rem 0 0.4rem;
+    }
+    .scoreline .label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #a3866a;
+    }
+    .scoreline .value {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #6b3a1a;
+    }
+    .scoreline .best .value {
+      color: #c47a3a;
+    }
+    .new-best {
+      display: inline-block;
+      margin-top: 0.4rem;
+      padding: 0.2rem 0.6rem;
+      background: #ffd166;
+      color: #6b3a1a;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      animation: pop 0.5s ease;
+    }
+    @keyframes pop {
+      0% { transform: scale(0.3); opacity: 0; }
+      60% { transform: scale(1.15); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .btn {
+      display: inline-block;
+      margin-top: 0.9rem;
+      padding: 0.7rem 1.4rem;
+      background: #c47a3a;
+      color: #fff8ee;
+      border: none;
+      border-radius: 999px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(196, 122, 58, 0.4);
+      transition: transform 0.1s ease, box-shadow 0.1s ease;
+    }
+    .btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(196, 122, 58, 0.45);
+    }
+    .btn:active {
+      transform: translateY(1px);
+      box-shadow: 0 2px 6px rgba(196, 122, 58, 0.4);
+    }
+    .hud {
+      position: absolute;
+      top: 12px;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 0.5rem;
+      pointer-events: none;
+    }
+    .hud .score {
+      font-size: 2.4rem;
+      font-weight: 700;
+      color: #fff8ee;
+      text-shadow: 0 3px 0 rgba(80, 40, 10, 0.35), 0 0 6px rgba(80, 40, 10, 0.15);
+      letter-spacing: 1px;
+    }
+    .topbar {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      display: flex;
+      gap: 0.4rem;
+      z-index: 5;
+    }
+    .icon-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(255, 250, 240, 0.85);
+      border: none;
+      cursor: pointer;
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #6b3a1a;
+      box-shadow: 0 2px 6px rgba(80, 40, 10, 0.15);
+      transition: transform 0.1s ease;
+    }
+    .icon-btn:hover { transform: scale(1.05); }
+    .icon-btn:active { transform: scale(0.95); }
+    .home-link {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      font-size: 0.78rem;
+      color: rgba(107, 58, 26, 0.6);
+      text-decoration: none;
+      z-index: 5;
+      padding: 0.3rem 0.6rem;
+      background: rgba(255, 250, 240, 0.7);
+      border-radius: 999px;
+    }
+    .home-link:hover { color: #6b3a1a; }
+    .capy-preview {
+      font-size: 2.6rem;
+      line-height: 1;
+      margin-bottom: 0.3rem;
+      animation: bob 1.6s ease-in-out infinite;
+      display: inline-block;
+    }
+    @keyframes bob {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+  </style>
+</head>
+<body>
+  <div id="stage">
+    <canvas id="game" width="480" height="720" aria-label="Flappy Capybara game"></canvas>
+
+    <div class="topbar">
+      <button id="muteBtn" class="icon-btn" aria-label="Toggle sound" title="Toggle sound">&#x1F50A;</button>
+    </div>
+
+    <div class="hud" id="hud" style="display:none;">
+      <div class="score" id="liveScore">0</div>
+    </div>
+
+    <div class="overlay" id="titleOverlay">
+      <div class="card">
+        <div class="capy-preview" aria-hidden="true">&#x1F9AB;</div>
+        <h1 class="title">Flappy Capybara</h1>
+        <p class="subtitle">Help Yuzu the capybara hop through the bamboo grove.</p>
+        <button class="btn" id="startBtn">Start playing</button>
+        <p class="hint">Tap, click, or press Space to flap</p>
+        <div class="scoreline" style="margin-top:0.9rem;">
+          <div class="best">
+            <div class="label">Best</div>
+            <div class="value" id="titleBest">0</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="overlay hidden" id="gameOverOverlay">
+      <div class="card">
+        <h1 class="title" id="gameOverTitle">Oof!</h1>
+        <p class="subtitle" id="gameOverSubtitle">Yuzu took a tumble.</p>
+        <div class="scoreline">
+          <div>
+            <div class="label">Score</div>
+            <div class="value" id="finalScore">0</div>
+          </div>
+          <div class="best">
+            <div class="label">Best</div>
+            <div class="value" id="finalBest">0</div>
+          </div>
+        </div>
+        <div id="newBestBadge" style="display:none;"><span class="new-best">New best!</span></div>
+        <button class="btn" id="retryBtn">Try again</button>
+        <p class="hint">or press Space</p>
+      </div>
+    </div>
+
+    <a class="home-link" href="index.html">&larr; home</a>
+  </div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---------- Setup ----------
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  const stage = document.getElementById('stage');
+  const titleOverlay = document.getElementById('titleOverlay');
+  const gameOverOverlay = document.getElementById('gameOverOverlay');
+  const startBtn = document.getElementById('startBtn');
+  const retryBtn = document.getElementById('retryBtn');
+  const muteBtn = document.getElementById('muteBtn');
+  const hud = document.getElementById('hud');
+  const liveScoreEl = document.getElementById('liveScore');
+  const titleBestEl = document.getElementById('titleBest');
+  const finalScoreEl = document.getElementById('finalScore');
+  const finalBestEl = document.getElementById('finalBest');
+  const newBestBadge = document.getElementById('newBestBadge');
+  const gameOverTitle = document.getElementById('gameOverTitle');
+  const gameOverSubtitle = document.getElementById('gameOverSubtitle');
+
+  // Logical (design) resolution. Canvas will be rendered at this size and
+  // scaled via CSS to fit the stage. We adjust for device pixel ratio.
+  const W = 480;
+  const H = 720;
+
+  function fitCanvas() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = W * dpr;
+    canvas.height = H * dpr;
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  fitCanvas();
+  window.addEventListener('resize', fitCanvas);
+
+  // ---------- High score ----------
+  const HS_KEY = 'flappyCapybaraHighScore_v1';
+  let highScore = 0;
+  try {
+    const stored = localStorage.getItem(HS_KEY);
+    if (stored) highScore = parseInt(stored, 10) || 0;
+  } catch (e) { /* localStorage disabled */ }
+  titleBestEl.textContent = highScore;
+
+  function saveHighScore(s) {
+    highScore = s;
+    try { localStorage.setItem(HS_KEY, String(s)); } catch (e) {}
+  }
+
+  // ---------- Audio (WebAudio, synthesized) ----------
+  let audioCtx = null;
+  let muted = false;
+  try {
+    muted = localStorage.getItem('flappyCapybaraMuted_v1') === '1';
+  } catch (e) {}
+  updateMuteButton();
+
+  function ensureAudio() {
+    if (!audioCtx) {
+      try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      } catch (e) { audioCtx = null; }
+    }
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  }
+
+  function beep(freq, dur, type, gain) {
+    if (muted || !audioCtx) return;
+    const t0 = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    osc.type = type || 'sine';
+    osc.frequency.setValueAtTime(freq, t0);
+    g.gain.setValueAtTime(0, t0);
+    g.gain.linearRampToValueAtTime(gain || 0.12, t0 + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(g).connect(audioCtx.destination);
+    osc.start(t0);
+    osc.stop(t0 + dur + 0.02);
+  }
+
+  function sndFlap()  { beep(520, 0.09, 'sine', 0.12); }
+  function sndScore() { beep(660, 0.07, 'triangle', 0.12); setTimeout(() => beep(880, 0.09, 'triangle', 0.12), 60); }
+  function sndHit()   { beep(160, 0.18, 'square', 0.18); setTimeout(() => beep(90, 0.25, 'sawtooth', 0.15), 80); }
+  function sndBest()  { beep(660, 0.09, 'triangle', 0.14); setTimeout(() => beep(880, 0.09, 'triangle', 0.14), 90); setTimeout(() => beep(1175, 0.12, 'triangle', 0.14), 180); }
+
+  function updateMuteButton() {
+    muteBtn.innerHTML = muted ? '&#x1F507;' : '&#x1F50A;';
+    muteBtn.setAttribute('aria-label', muted ? 'Unmute' : 'Mute');
+  }
+  muteBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    muted = !muted;
+    try { localStorage.setItem('flappyCapybaraMuted_v1', muted ? '1' : '0'); } catch (err) {}
+    updateMuteButton();
+    if (!muted) ensureAudio();
+  });
+
+  // ---------- Game state ----------
+  const STATE = { TITLE: 0, PLAYING: 1, GAME_OVER: 2 };
+  let state = STATE.TITLE;
+
+  // Physics tuned for friendliness — gentle gravity, generous gap, slow start.
+  const GRAVITY = 0.42;
+  const FLAP_VY = -7.4;
+  const MAX_VY = 11;
+  const PIPE_SPEED_BASE = 2.2;
+  const PIPE_SPACING = 230;     // horizontal distance between pipes
+  const PIPE_WIDTH = 60;
+  const PIPE_GAP_BASE = 180;    // vertical gap between top and bottom pipe
+  const PIPE_GAP_MIN = 140;
+  const GROUND_HEIGHT = 70;
+  const CAPY_X = 130;
+
+  const capy = {
+    x: CAPY_X,
+    y: H / 2,
+    vy: 0,
+    rot: 0,
+    radius: 20,
+    flapPhase: 0
+  };
+
+  let pipes = [];
+  let score = 0;
+  let groundOffset = 0;
+  let cloudOffsets = [];
+  let hillOffset = 0;
+  let particles = [];
+  let shakeTime = 0;
+  let lastTime = 0;
+  let dawnTime = 0; // animates sky over time
+  let bestThisRun = false;
+
+  // ---------- Clouds (parallax) ----------
+  const clouds = [];
+  function initClouds() {
+    clouds.length = 0;
+    for (let i = 0; i < 5; i++) {
+      clouds.push({
+        x: Math.random() * W,
+        y: 40 + Math.random() * 220,
+        scale: 0.5 + Math.random() * 0.9,
+        speed: 0.15 + Math.random() * 0.25
+      });
+    }
+  }
+  initClouds();
+
+  // ---------- Pipes ----------
+  function spawnPipe(x) {
+    const minTop = 60;
+    const maxTop = H - GROUND_HEIGHT - PIPE_GAP_BASE - 60;
+    // Gap shrinks slightly as score climbs, but never below PIPE_GAP_MIN
+    const gap = Math.max(PIPE_GAP_MIN, PIPE_GAP_BASE - score * 1.2);
+    const topHeight = minTop + Math.random() * (maxTop - minTop);
+    pipes.push({
+      x,
+      topHeight,
+      gap,
+      passed: false,
+      sway: Math.random() * Math.PI * 2
+    });
+  }
+
+  function resetGame() {
+    capy.x = CAPY_X;
+    capy.y = H / 2;
+    capy.vy = 0;
+    capy.rot = 0;
+    capy.flapPhase = 0;
+    pipes = [];
+    score = 0;
+    bestThisRun = false;
+    shakeTime = 0;
+    particles = [];
+    // Pre-spawn a couple of pipes off-screen to the right
+    spawnPipe(W + 80);
+    spawnPipe(W + 80 + PIPE_SPACING);
+    spawnPipe(W + 80 + PIPE_SPACING * 2);
+    liveScoreEl.textContent = '0';
+  }
+
+  // ---------- Input ----------
+  function flap() {
+    if (state === STATE.TITLE) {
+      startGame();
+      return;
+    }
+    if (state === STATE.GAME_OVER) {
+      // small grace so accidental taps don't immediately restart
+      if (performance.now() - gameOverAt > 350) restart();
+      return;
+    }
+    capy.vy = FLAP_VY;
+    capy.flapPhase = 1;
+    sndFlap();
+    spawnFlapPuff();
+  }
+
+  let gameOverAt = 0;
+
+  function startGame() {
+    ensureAudio();
+    resetGame();
+    state = STATE.PLAYING;
+    titleOverlay.classList.add('hidden');
+    gameOverOverlay.classList.add('hidden');
+    hud.style.display = 'flex';
+  }
+
+  function endGame() {
+    state = STATE.GAME_OVER;
+    gameOverAt = performance.now();
+    shakeTime = 22;
+    sndHit();
+    hud.style.display = 'none';
+
+    if (score > highScore) {
+      saveHighScore(score);
+      bestThisRun = true;
+      sndBest();
+    }
+    finalScoreEl.textContent = score;
+    finalBestEl.textContent = highScore;
+    titleBestEl.textContent = highScore;
+    newBestBadge.style.display = bestThisRun ? 'block' : 'none';
+
+    // Friendly, varied game-over messages
+    const msgs = [
+      ['Oof!', 'Yuzu took a tumble.'],
+      ['So close!', 'The bamboo grove is tricky.'],
+      ['Nice try!', 'Yuzu wants another go.'],
+      ['Splash!', 'Back to the hot spring.'],
+      ['Almost!', 'One more round?'],
+    ];
+    const m = bestThisRun
+      ? ['New best!', 'Yuzu is unstoppable today.']
+      : msgs[Math.floor(Math.random() * msgs.length)];
+    gameOverTitle.textContent = m[0];
+    gameOverSubtitle.textContent = m[1];
+    gameOverOverlay.classList.remove('hidden');
+  }
+
+  function restart() {
+    startGame();
+  }
+
+  // Pointer/touch/keys
+  stage.addEventListener('pointerdown', (e) => {
+    // Ignore clicks on buttons (they handle themselves)
+    if (e.target.closest('button') || e.target.closest('a')) return;
+    flap();
+  });
+  window.addEventListener('keydown', (e) => {
+    if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
+      e.preventDefault();
+      flap();
+    }
+  });
+  startBtn.addEventListener('click', (e) => { e.stopPropagation(); startGame(); });
+  retryBtn.addEventListener('click', (e) => { e.stopPropagation(); restart(); });
+
+  // ---------- Particles ----------
+  function spawnFlapPuff() {
+    for (let i = 0; i < 4; i++) {
+      particles.push({
+        x: capy.x - 14, y: capy.y + 10,
+        vx: -1 - Math.random() * 1.5,
+        vy: 0.5 + Math.random() * 1.2,
+        life: 0.6 + Math.random() * 0.3,
+        age: 0,
+        size: 5 + Math.random() * 4,
+        color: 'rgba(255, 250, 240, 0.7)',
+        kind: 'puff'
+      });
+    }
+  }
+
+  function spawnScoreSparkles() {
+    for (let i = 0; i < 10; i++) {
+      const a = Math.random() * Math.PI * 2;
+      particles.push({
+        x: capy.x + 10, y: capy.y,
+        vx: Math.cos(a) * (1 + Math.random() * 2.2),
+        vy: Math.sin(a) * (1 + Math.random() * 2.2) - 0.5,
+        life: 0.7,
+        age: 0,
+        size: 3 + Math.random() * 3,
+        color: ['#ffd166', '#ffb347', '#fff3b0', '#ffc97a'][Math.floor(Math.random() * 4)],
+        kind: 'spark'
+      });
+    }
+  }
+
+  // ---------- Drawing helpers ----------
+  function drawSky() {
+    // Subtle dawn->day gradient that drifts a touch over time
+    const t = (Math.sin(dawnTime * 0.0003) + 1) * 0.5; // 0..1
+    const top = lerpColor([255, 200, 170], [180, 220, 255], t);
+    const mid = lerpColor([255, 220, 200], [205, 235, 255], t);
+    const bot = lerpColor([255, 240, 220], [225, 245, 255], t);
+    const grad = ctx.createLinearGradient(0, 0, 0, H);
+    grad.addColorStop(0, rgb(top));
+    grad.addColorStop(0.55, rgb(mid));
+    grad.addColorStop(1, rgb(bot));
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+
+    // Soft sun
+    const sunX = W - 90, sunY = 110;
+    const rg = ctx.createRadialGradient(sunX, sunY, 5, sunX, sunY, 80);
+    rg.addColorStop(0, 'rgba(255, 240, 200, 0.9)');
+    rg.addColorStop(0.4, 'rgba(255, 220, 170, 0.35)');
+    rg.addColorStop(1, 'rgba(255, 220, 170, 0)');
+    ctx.fillStyle = rg;
+    ctx.fillRect(sunX - 80, sunY - 80, 160, 160);
+  }
+
+  function rgb(c) { return 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')'; }
+  function lerpColor(a, b, t) {
+    return [
+      Math.round(a[0] + (b[0] - a[0]) * t),
+      Math.round(a[1] + (b[1] - a[1]) * t),
+      Math.round(a[2] + (b[2] - a[2]) * t)
+    ];
+  }
+
+  function drawClouds() {
+    ctx.save();
+    for (const c of clouds) {
+      drawCloud(c.x, c.y, c.scale);
+    }
+    ctx.restore();
+  }
+
+  function drawCloud(x, y, s) {
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+    const r = 18 * s;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.arc(x + r * 0.9, y + r * 0.2, r * 0.85, 0, Math.PI * 2);
+    ctx.arc(x - r * 0.9, y + r * 0.2, r * 0.8, 0, Math.PI * 2);
+    ctx.arc(x + r * 0.3, y - r * 0.5, r * 0.7, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  function drawHills() {
+    // Distant hill silhouettes
+    ctx.fillStyle = 'rgba(120, 170, 130, 0.5)';
+    drawHill(W * 0.2 - hillOffset * 0.3, H - GROUND_HEIGHT - 30, 220, 100);
+    drawHill(W * 0.7 - hillOffset * 0.3, H - GROUND_HEIGHT - 20, 260, 90);
+    drawHill(W * 1.1 - hillOffset * 0.3, H - GROUND_HEIGHT - 40, 220, 110);
+
+    ctx.fillStyle = 'rgba(100, 150, 110, 0.65)';
+    drawHill(W * 0.05 - hillOffset * 0.5, H - GROUND_HEIGHT - 10, 200, 70);
+    drawHill(W * 0.5 - hillOffset * 0.5, H - GROUND_HEIGHT - 15, 230, 80);
+    drawHill(W * 0.95 - hillOffset * 0.5, H - GROUND_HEIGHT - 5, 200, 60);
+  }
+  function drawHill(cx, baseY, w, h) {
+    ctx.beginPath();
+    ctx.moveTo(cx - w / 2, baseY);
+    ctx.quadraticCurveTo(cx, baseY - h, cx + w / 2, baseY);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  function drawGround() {
+    const y = H - GROUND_HEIGHT;
+    // Soft sandy/mossy ground
+    const grad = ctx.createLinearGradient(0, y, 0, H);
+    grad.addColorStop(0, '#e8c98e');
+    grad.addColorStop(1, '#caa468');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, y, W, GROUND_HEIGHT);
+
+    // Grass tufts that scroll with the ground
+    ctx.fillStyle = '#8fbf6a';
+    ctx.fillRect(0, y, W, 6);
+    ctx.fillStyle = '#7aa856';
+    for (let i = -1; i < Math.ceil(W / 24) + 1; i++) {
+      const gx = i * 24 - (groundOffset % 24);
+      ctx.beginPath();
+      ctx.moveTo(gx, y + 6);
+      ctx.lineTo(gx + 4, y - 2);
+      ctx.lineTo(gx + 8, y + 6);
+      ctx.fill();
+    }
+
+    // Pebbles
+    ctx.fillStyle = 'rgba(120, 90, 50, 0.35)';
+    for (let i = 0; i < 8; i++) {
+      const px = ((i * 73 - groundOffset * 0.6) % W + W) % W;
+      ctx.beginPath();
+      ctx.arc(px, y + 30 + (i % 3) * 10, 2 + (i % 2), 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  function drawPipe(p) {
+    const bottomY = p.topHeight + p.gap;
+    const groundY = H - GROUND_HEIGHT;
+    const sway = Math.sin(dawnTime * 0.002 + p.sway) * 1.5;
+    drawBamboo(p.x + sway, 0, PIPE_WIDTH, p.topHeight, true);
+    drawBamboo(p.x - sway, bottomY, PIPE_WIDTH, groundY - bottomY, false);
+  }
+
+  function drawBamboo(x, y, w, h, isTop) {
+    if (h <= 0) return;
+    // Bamboo body gradient
+    const grad = ctx.createLinearGradient(x, 0, x + w, 0);
+    grad.addColorStop(0, '#6fa84a');
+    grad.addColorStop(0.5, '#a3d27a');
+    grad.addColorStop(1, '#6fa84a');
+    ctx.fillStyle = grad;
+    ctx.fillRect(x, y, w, h);
+
+    // Segment lines
+    ctx.strokeStyle = 'rgba(60, 90, 40, 0.5)';
+    ctx.lineWidth = 1.5;
+    const segH = 38;
+    const startSeg = Math.floor(y / segH) * segH;
+    for (let sy = startSeg; sy < y + h; sy += segH) {
+      if (sy <= y || sy >= y + h - 2) continue;
+      ctx.beginPath();
+      ctx.moveTo(x + 2, sy);
+      ctx.quadraticCurveTo(x + w / 2, sy + 5, x + w - 2, sy);
+      ctx.stroke();
+    }
+
+    // Highlight stripe
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.18)';
+    ctx.fillRect(x + 6, y, 4, h);
+
+    // Cap (the chunky end facing the gap)
+    const capH = 18;
+    const capY = isTop ? y + h - capH : y;
+    const grad2 = ctx.createLinearGradient(x - 4, 0, x + w + 4, 0);
+    grad2.addColorStop(0, '#5e9540');
+    grad2.addColorStop(0.5, '#8cc568');
+    grad2.addColorStop(1, '#5e9540');
+    ctx.fillStyle = grad2;
+    ctx.fillRect(x - 4, capY, w + 8, capH);
+    ctx.strokeStyle = 'rgba(60, 90, 40, 0.55)';
+    ctx.strokeRect(x - 4, capY, w + 8, capH);
+
+    // A leaf sprig on the cap for charm
+    if (isTop) {
+      drawLeaf(x + w - 2, capY + capH - 4, 14, 0.5);
+    } else {
+      drawLeaf(x + 2, capY + 4, 14, -0.5);
+    }
+  }
+
+  function drawLeaf(x, y, size, dir) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(dir);
+    ctx.fillStyle = '#7fb05a';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, size, size * 0.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(60, 90, 40, 0.6)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-size, 0);
+    ctx.lineTo(size, 0);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // ---------- Capybara ----------
+  function drawCapy() {
+    ctx.save();
+    ctx.translate(capy.x, capy.y);
+    ctx.rotate(capy.rot);
+
+    // Soft drop shadow
+    ctx.fillStyle = 'rgba(80, 40, 10, 0.18)';
+    ctx.beginPath();
+    ctx.ellipse(2, 16, 22, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Body (rounded chunky oval)
+    const bodyGrad = ctx.createLinearGradient(0, -20, 0, 18);
+    bodyGrad.addColorStop(0, '#b9885a');
+    bodyGrad.addColorStop(1, '#8a5e34');
+    ctx.fillStyle = bodyGrad;
+    ctx.beginPath();
+    ctx.ellipse(0, 4, 24, 18, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Tummy lighter patch
+    ctx.fillStyle = 'rgba(255, 230, 200, 0.35)';
+    ctx.beginPath();
+    ctx.ellipse(-2, 10, 14, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Head (slightly forward and up)
+    ctx.fillStyle = '#a87a4e';
+    ctx.beginPath();
+    ctx.ellipse(14, -6, 16, 14, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Ear
+    ctx.fillStyle = '#7a5230';
+    ctx.beginPath();
+    ctx.ellipse(8, -18, 4, 5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#e9b58a';
+    ctx.beginPath();
+    ctx.ellipse(8, -17, 2, 3, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Snout (rounded square in front)
+    ctx.fillStyle = '#b9885a';
+    ctx.beginPath();
+    ctx.ellipse(24, -2, 7, 5.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Nostril
+    ctx.fillStyle = '#5a3a1c';
+    ctx.beginPath();
+    ctx.arc(27, -3, 1.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Eye
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(18, -8, 3.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#2a1810';
+    ctx.beginPath();
+    ctx.arc(19, -8, 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(19.7, -8.7, 0.7, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Tiny smile
+    ctx.strokeStyle = '#5a3a1c';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(22, 1);
+    ctx.quadraticCurveTo(23, 3, 25, 2);
+    ctx.stroke();
+
+    // Cheek blush
+    ctx.fillStyle = 'rgba(255, 150, 130, 0.45)';
+    ctx.beginPath();
+    ctx.arc(17, -1, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Legs (animated paddle when flapping)
+    const flap = Math.max(0, capy.flapPhase);
+    const legY = 16;
+    const legSwing = Math.sin(dawnTime * 0.02) * 2;
+    ctx.fillStyle = '#7a5230';
+    // Back leg
+    ctx.beginPath();
+    ctx.ellipse(-10, legY - flap * 4 + legSwing, 5, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Front leg
+    ctx.beginPath();
+    ctx.ellipse(8, legY - flap * 3 - legSwing, 5, 6, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // A little yuzu citrus on the head for character (so very capybara-onsen)
+    if (state === STATE.TITLE || state === STATE.PLAYING) {
+      ctx.fillStyle = '#ffd166';
+      ctx.beginPath();
+      ctx.arc(4, -18, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#c47a3a';
+      ctx.beginPath();
+      ctx.arc(4, -21, 1, 0, Math.PI * 2);
+      ctx.fill();
+      // Leaf
+      ctx.fillStyle = '#7fb05a';
+      ctx.beginPath();
+      ctx.ellipse(6, -22, 3, 1.2, -0.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
+  function drawParticles() {
+    for (const p of particles) {
+      const a = 1 - (p.age / p.life);
+      ctx.globalAlpha = Math.max(0, a);
+      if (p.kind === 'puff') {
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * (0.6 + a * 0.6), 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function drawScore() {
+    if (state !== STATE.PLAYING) return;
+    // The DOM HUD shows the score; the canvas just shows nothing here
+    // to keep the gameplay zone uncluttered. Score is updated via liveScoreEl.
+  }
+
+  // ---------- Update ----------
+  function update(dt) {
+    dawnTime += dt;
+
+    // Clouds drift even on title screen
+    for (const c of clouds) {
+      c.x -= c.speed * dt * 0.06;
+      if (c.x < -60) {
+        c.x = W + 30 + Math.random() * 60;
+        c.y = 40 + Math.random() * 220;
+        c.scale = 0.5 + Math.random() * 0.9;
+      }
+    }
+
+    if (state === STATE.TITLE) {
+      // Gentle idle bob for the capy on title (we draw it on canvas in playing/over)
+      capy.y = H / 2 + Math.sin(dawnTime * 0.004) * 8;
+      capy.rot = Math.sin(dawnTime * 0.004) * 0.05;
+      capy.flapPhase = Math.max(0, capy.flapPhase - dt * 0.005);
+    } else if (state === STATE.PLAYING) {
+      capy.vy += GRAVITY;
+      if (capy.vy > MAX_VY) capy.vy = MAX_VY;
+      capy.y += capy.vy;
+
+      // Rotation: tilt up when flapping, tilt down on fall
+      const target = Math.max(-0.5, Math.min(1.2, capy.vy * 0.08));
+      capy.rot += (target - capy.rot) * 0.15;
+      capy.flapPhase = Math.max(0, capy.flapPhase - dt * 0.005);
+
+      // Scroll
+      const speed = PIPE_SPEED_BASE + Math.min(2.2, score * 0.06);
+      groundOffset += speed;
+      hillOffset += speed;
+
+      for (const p of pipes) p.x -= speed;
+
+      // Spawn new pipes
+      const last = pipes[pipes.length - 1];
+      if (last && last.x < W - PIPE_SPACING) {
+        spawnPipe(last.x + PIPE_SPACING);
+      }
+      // Remove off-screen
+      pipes = pipes.filter(p => p.x + PIPE_WIDTH > -20);
+
+      // Scoring
+      for (const p of pipes) {
+        if (!p.passed && p.x + PIPE_WIDTH < capy.x - capy.radius) {
+          p.passed = true;
+          score += 1;
+          liveScoreEl.textContent = String(score);
+          sndScore();
+          spawnScoreSparkles();
+        }
+      }
+
+      // Collisions
+      if (capy.y + capy.radius >= H - GROUND_HEIGHT) {
+        capy.y = H - GROUND_HEIGHT - capy.radius;
+        endGame();
+      } else if (capy.y - capy.radius <= 0) {
+        capy.y = capy.radius;
+        capy.vy = 1; // bonk
+      }
+      for (const p of pipes) {
+        const inX = capy.x + capy.radius > p.x && capy.x - capy.radius < p.x + PIPE_WIDTH;
+        if (!inX) continue;
+        const above = capy.y - capy.radius < p.topHeight;
+        const below = capy.y + capy.radius > p.topHeight + p.gap;
+        if (above || below) {
+          endGame();
+          break;
+        }
+      }
+    } else if (state === STATE.GAME_OVER) {
+      // Let the capy fall and settle
+      if (capy.y + capy.radius < H - GROUND_HEIGHT) {
+        capy.vy += GRAVITY;
+        capy.y += capy.vy;
+        capy.rot += 0.05;
+        if (capy.y + capy.radius >= H - GROUND_HEIGHT) {
+          capy.y = H - GROUND_HEIGHT - capy.radius;
+          capy.vy = 0;
+        }
+      }
+    }
+
+    if (shakeTime > 0) shakeTime -= 1;
+
+    // Particles
+    for (const p of particles) {
+      p.age += dt / 1000;
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.05;
+    }
+    particles = particles.filter(p => p.age < p.life);
+  }
+
+  // ---------- Render ----------
+  function render() {
+    ctx.save();
+    if (shakeTime > 0) {
+      const s = shakeTime * 0.4;
+      ctx.translate((Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
+    }
+
+    drawSky();
+    drawClouds();
+    drawHills();
+
+    // Pipes behind capy
+    for (const p of pipes) drawPipe(p);
+
+    drawGround();
+    drawCapy();
+    drawParticles();
+    drawScore();
+
+    ctx.restore();
+  }
+
+  // ---------- Main loop ----------
+  function frame(now) {
+    if (!lastTime) lastTime = now;
+    const dt = Math.min(40, now - lastTime); // clamp to prevent huge jumps after tab-hide
+    lastTime = now;
+    update(dt);
+    render();
+    requestAnimationFrame(frame);
+  }
+
+  // Initialize idle state so the title screen has a nice animated background.
+  resetGame();
+  state = STATE.TITLE;
+  // Don't show pipes during title — clear them after reset
+  pipes = [];
+  requestAnimationFrame(frame);
+
+  // Pause when tab hidden so capy doesn't gravity to death in background
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      lastTime = 0;
+    }
+  });
+})();
+</script>
+</body>
+</html>
